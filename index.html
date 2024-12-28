@@ -3,67 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Currency Prediction Interface</title>
+    <title>Live Currency Prediction</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
             margin: 0;
-            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            font-family: Arial, sans-serif;
+            background: linear-gradient(120deg, #84fab0, #8fd3f4);
             color: #333;
         }
         .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 900px;
-            padding: 20px;
-            margin: 10px;
             text-align: center;
+            padding: 20px;
         }
-        .currency-selector {
-            margin-bottom: 20px;
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
         }
-        .table-container {
+        select {
+            padding: 10px;
+            font-size: 1rem;
             margin: 20px 0;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-        th, td {
-            padding: 12px;
-            text-align: center;
-        }
-        th {
-            background-color: #4facfe;
-            color: white;
-        }
         canvas {
-            max-width: 100%;
+            max-width: 90%;
             height: 400px;
+            margin: 20px auto;
         }
     </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Live Currency Prediction</h1>
+        <label for="currency">Select Currency:</label>
+        <select id="currency" onchange="updateUI()">
+            <option value="USD">USD</option>
+            <option value="KWD">KWD</option>
+            <option value="CAD">CAD</option>
+        </select>
+        <canvas id="currencyChart"></canvas>
+    </div>
     <script>
         const apiKey = '8887a6afbfd8a53d21fb34919679881e';
+        const models = {
+            USD: {
+                high: { coefficients: [0.71077537, 0.29107631], intercept: 0.5723214006915214 },
+                low: { coefficients: [0.64754428, 0.34472515], intercept: 0.5459168155532552 }
+            },
+            KWD: {
+                high: { coefficients: [0.65276555, 0.34988559], intercept: 2.1225840821574593 },
+                low: { coefficients: [0.54742866, 0.44378839], intercept: 1.7023869830311469 }
+            },
+            CAD: {
+                high: { coefficients: [0.5737291, 0.42937964], intercept: 0.5428782957967542 },
+                low: { coefficients: [0.54036953, 0.45050285], intercept: 0.2317553544311579 }
+            }
+        };
 
-        async function fetchCurrencyData(currency) {
-            const response = await fetch(`https://api.exchangerate.host/timeseries?start_date=2023-12-01&end_date=2023-12-31&base=${currency}&apikey=${apiKey}`);
+        let chart;
+
+        async function fetchCurrencyData(base) {
+            const response = await fetch(`https://api.exchangerate.host/timeseries?start_date=2023-12-01&end_date=2023-12-31&base=${base}`);
             const data = await response.json();
-            return data;
+            return data.rates;
         }
 
         function calculatePrediction(open, price, model) {
@@ -74,46 +76,31 @@
 
         async function updateUI() {
             const currency = document.getElementById('currency').value;
-            const data = await fetchCurrencyData(currency);
-            const rates = Object.entries(data.rates).map(([date, values]) => ({ date, open: values[currency], price: values[currency] }));
-
-            const tableBody = document.getElementById('table-body');
-            tableBody.innerHTML = '';
+            const rates = await fetchCurrencyData(currency);
 
             const labels = [];
             const highValues = [];
             const lowValues = [];
-            
-            const model = {
-                high: { coefficients: [0.71077537, 0.29107631], intercept: 0.5723214006915214 },
-                low: { coefficients: [0.64754428, 0.34472515], intercept: 0.5459168155532552 }
-            };
 
-            rates.forEach(rate => {
-                const prediction = calculatePrediction(rate.open, rate.price, model);
-                labels.push(rate.date);
+            Object.entries(rates).forEach(([date, rate]) => {
+                const open = rate[currency];
+                const price = rate[currency]; // Using the same for simplicity
+                const prediction = calculatePrediction(open, price, models[currency]);
+
+                labels.push(date);
                 highValues.push(prediction.high.toFixed(2));
                 lowValues.push(prediction.low.toFixed(2));
-
-                const row = `<tr>
-                    <td>${rate.date}</td>
-                    <td>${rate.open.toFixed(2)}</td>
-                    <td>${rate.price.toFixed(2)}</td>
-                    <td>${prediction.high.toFixed(2)}</td>
-                    <td>${prediction.low.toFixed(2)}</td>
-                </tr>`;
-                tableBody.insertAdjacentHTML('beforeend', row);
             });
 
-            updateGraph(labels, highValues, lowValues);
+            updateChart(labels, highValues, lowValues);
         }
 
-        function updateGraph(labels, highValues, lowValues) {
+        function updateChart(labels, highValues, lowValues) {
             const ctx = document.getElementById('currencyChart').getContext('2d');
-            if (window.myChart) {
-                window.myChart.destroy();
-            }
-            window.myChart = new Chart(ctx, {
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -137,58 +124,17 @@
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: {
-                            position: 'top'
-                        }
+                        legend: { position: 'top' }
                     },
                     scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Value'
-                            }
-                        }
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { title: { display: true, text: 'Value' } }
                     }
                 }
             });
         }
+
+        updateUI();
     </script>
-</head>
-<body>
-    <div class="container">
-        <div class="card">
-            <h1>Currency Prediction Interface</h1>
-            <div class="currency-selector">
-                <label for="currency">Select Currency:</label>
-                <select id="currency" onchange="updateUI()">
-                    <option value="USD">USD</option>
-                    <option value="KWD">KWD</option>
-                    <option value="CAD">CAD</option>
-                    <option value="EUR">EUR</option>
-                </select>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Open</th>
-                            <th>Price</th>
-                            <th>Predicted High</th>
-                            <th>Predicted Low</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body"></tbody>
-                </table>
-            </div>
-            <canvas id="currencyChart"></canvas>
-        </div>
-    </div>
 </body>
 </html>
