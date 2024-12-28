@@ -3,138 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Currency Prediction</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(120deg, #84fab0, #8fd3f4);
-            color: #333;
-        }
-        .container {
-            text-align: center;
-            padding: 20px;
-        }
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-        select {
-            padding: 10px;
-            font-size: 1rem;
-            margin: 20px 0;
-        }
-        canvas {
-            max-width: 90%;
-            height: 400px;
-            margin: 20px auto;
-        }
-    </style>
+    <title>Real-Time Exchange Rates</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Live Currency Prediction hello</h1>
-        <label for="currency">Select Currency:</label>
-        <select id="currency" onchange="updateUI()">
-            <option value="USD">USD</option>
-            <option value="KWD">KWD</option>
-            <option value="CAD">CAD</option>
-        </select>
-        <canvas id="currencyChart"></canvas>
+        <h1>Real-Time Exchange Rates</h1>
+        <div id="exchange-rate">Loading...</div>
     </div>
-    <script>
-        const apiKey = '8887a6afbfd8a53d21fb34919679881e';
-        const models = {
-            USD: {
-                high: { coefficients: [0.71077537, 0.29107631], intercept: 0.5723214006915214 },
-                low: { coefficients: [0.64754428, 0.34472515], intercept: 0.5459168155532552 }
-            },
-            KWD: {
-                high: { coefficients: [0.65276555, 0.34988559], intercept: 2.1225840821574593 },
-                low: { coefficients: [0.54742866, 0.44378839], intercept: 1.7023869830311469 }
-            },
-            CAD: {
-                high: { coefficients: [0.5737291, 0.42937964], intercept: 0.5428782957967542 },
-                low: { coefficients: [0.54036953, 0.45050285], intercept: 0.2317553544311579 }
-            }
-        };
-
-        let chart;
-
-        async function fetchCurrencyData(base) {
-            const response = await fetch(`https://api.exchangerate.host/timeseries?start_date=2023-12-01&end_date=2023-12-31&base=${base}`);
-            const data = await response.json();
-            return data.rates;
-        }
-
-        function calculatePrediction(open, price, model) {
-            const high = model.high.coefficients[0] * open + model.high.coefficients[1] * price + model.high.intercept;
-            const low = model.low.coefficients[0] * open + model.low.coefficients[1] * price + model.low.intercept;
-            return { high, low };
-        }
-
-        async function updateUI() {
-            const currency = document.getElementById('currency').value;
-            const rates = await fetchCurrencyData(currency);
-
-            const labels = [];
-            const highValues = [];
-            const lowValues = [];
-
-            Object.entries(rates).forEach(([date, rate]) => {
-                const open = rate[currency];
-                const price = rate[currency]; // Using the same for simplicity
-                const prediction = calculatePrediction(open, price, models[currency]);
-
-                labels.push(date);
-                highValues.push(prediction.high.toFixed(2));
-                lowValues.push(prediction.low.toFixed(2));
-            });
-
-            updateChart(labels, highValues, lowValues);
-        }
-
-        function updateChart(labels, highValues, lowValues) {
-            const ctx = document.getElementById('currencyChart').getContext('2d');
-
-            if (chart) chart.destroy();
-
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Predicted High',
-                            data: highValues,
-                            borderColor: '#4caf50',
-                            backgroundColor: 'rgba(76, 175, 80, 0.2)',
-                            fill: true
-                        },
-                        {
-                            label: 'Predicted Low',
-                            data: lowValues,
-                            borderColor: '#f44336',
-                            backgroundColor: 'rgba(244, 67, 54, 0.2)',
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' }
-                    },
-                    scales: {
-                        x: { title: { display: true, text: 'Date' } },
-                        y: { title: { display: true, text: 'Value' } }
-                    }
-                }
-            });
-        }
-
-        updateUI();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
